@@ -1,0 +1,6 @@
+init
+halt
+stm32h7x option_write 0 0x44 0x1ff01ff0
+stm32h7x option_write 0 0x3C 0xFF
+stm32h7x unlock 0
+

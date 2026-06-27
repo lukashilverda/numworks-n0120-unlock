@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Numworks Patcher (N0115 / N0120)</title>
+    <style>
+      body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          background-color: #f4f6f9;
+          color: #333;
+          max-width: 1000px;
+          margin: 20px auto;
+          padding: 20px;
+      }
+      .card {
+          background: white;
+          padding: 25px;
+          border-radius: 8px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          margin-bottom: 20px;
+      }
+      h1 { color: #0056b3; margin-top: 0; }
+      h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 8px; }
+      .file-input-group {
+          margin: 20px 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+      }
+      label { font-weight: bold; }
+      input[type="file"] {
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          background: #fafafa;
+      }
+      button {
+          background-color: #28a745;
+          color: white;
+          border: none;
+          padding: 12px 20px;
+          font-size: 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: background 0.2s;
+      }
+      button:hover { background-color: #218838; }
+      button:disabled { background-color: #6c757d; cursor: not-allowed; }
+      #log {
+          background: #1e1e1e;
+          color: #d4d4d4;
+          font-family: 'Courier New', Courier, monospace;
+          padding: 15px;
+          border-radius: 4px;
+          white-space: pre-wrap;
+          max-height: 300px;
+          overflow-y: auto;
+          font-size: 14px;
+      }
+      .success { color: #4ec9b0; }
+      .error { color: #f44747; }
+      .info { color: #569cd6; }
+    </style>
+  </head>
+  <body>
+
+    <div class="card">
+      <h1>Numworks Unlock Patcher (beta version)</h1>
+      Got this page in French from 
+      <a href="https://www-fourier.univ-grenoble-alpes.fr/~parisse/numworks/patch.html" target="_blank">https://www-fourier.univ-grenoble-alpes.fr/~parisse/numworks/patch.html</a>, 
+      translated to English by DeepSeek. 
+      <p>Should work with Epsilon versions 20 to 25.</p>
+      <p>Select your internal flash dump and kernel slot A files to automatically apply patches that enable interoperability with your calculator's unlock. To obtain these dump files, go to <a href="https://ti-planet.github.io/webdfu_numworks/">the TI-Planet webUSB DFU site</a>, retrieve internal flash and slot A.
+      <p> If you prefer to work locally with dfu-utils (Linux/Mac), use the scripts
+	(<a href="boot/patchboot120.sh">patchboot120.sh</a> and 
+	<a href="kernel/patchkernel120.sh">patchkernel120.sh</a>) or
+	<a href="boot/patchboot115.sh">patchboot115.sh</a>,
+	with the dumps obtained by the following commands, for N0120:
+	<br><tt>/bin/rm -f epsilonkernel.bin</tt>
+	<br><tt>  dfu-util -i 0 -a 0 -s 0x90000000:0x10000:force -U epsilonkernel.bin</tt>
+	<br><tt> /bin/rm -f epsiloninternal.bin </tt>
+	<br><tt>  dfu-util -i 0 -a 0 -s 0x8000000:0x80000:force -U epsiloninternal.bin</tt>
+	<br>On N0115, replace the last command with:
+	<br><tt>  dfu-util -i 0 -a 0 -s 0x200000:0x10000:force -U epsiloninternal.bin</tt>
+    </div>
+
+    <div class="card">
+      <h2>1. Bootloader Patch (Internal Flash) + Code/Resources Injection</h2>
+      <div class="file-input-group">
+        <label for="bootloader-file">Bootloader file:</label>
+        <input type="file" id="bootloader-file" accept=".bin,.hex">
+      </div>
+      <button id="btn-patch-bootloader" disabled>Patch and download Bootloader</button>
+    </div>
+
+    <div class="card">
+      <h2>2. Kernel Patch (External Flash)</h2>
+      <div class="file-input-group">
+        <label for="kernel-file">Kernel file (first 65536 bytes of external flash):</label>
+        <input type="file" id="kernel-file" accept=".bin,.hex">
+      </div>
+      <button id="btn-patch-kernel" disabled>Patch Kernel</button>
+    </div>
+
+    <div class="card">
+      <h2>Log console</h2>
+      <div id="log">Waiting for files...</div>
+    </div>
+
+    <script>
+      // ==============================================================================
+      // EMBEDDED RESOURCES IN BASE64
+      // Replace the strings below with the result of the `base64` command
+      // ==============================================================================
+      const b64_main = "/7V9SADwuPgAJ3xMoEd6SADwsvhP8AAAeUlB8qUCeUuYR0DyHWBP8LIBT/DPAnZLT/AKBADwAfhA4CC1c02t6wUNAJABlAKocUygR29NDesFDSC9/7VvSkjyz1RP8AEDEWhB6gQBAPAa+AP6APCB6gABEWD/vf61Z0pP8AEDEWgA8Aj4A/oA8AHqAAEAKQi/ASD+vQK1D/JNEQhcAr0CtU6hCFwCvQC1//fU/0/wZAAA8Fb4CEb/997/AL1P8AEAT/AAAf/37/8BKAi/U0gIvwDwUvhISADwT/hP8AEAT/ABAf/34P8BKAi/TUgIvwDwQ/gIvwDwKfhP8AEAT/ACAf/30f8BKAi/RkgIv4BHCL8A8Bv4T/ACAE/wAAH/98P/ASgIvz1ICL8A8Cb4CL8A8Az4T/ACAE/wAQH/97T/ASgIvwDwI/i55/C9/ucDtTZJT/AAAAhgA70CtTRJCGACvQK1T/CUAQD7AfAAv6DxAQAAKIi/+ecCvf/36P8BRghogPMIiAHxBAEIaABHH7VA8gRAT/SIcU/wjAIlS0/wUAT/90v/T/AIAE/wBQH/93v/ASgYv/bnT/AAABFJQfKlAhBLmEdA8h1gT/CyAU/wzwINS0/wCgT/9zD/H70PCggHBgMCAAEBCQsEBQYUAAJYz4UAABAIAlgAIAAAkM1aAAhAAfAAkQMACMDAAAi49QEA5TcACBQAAlgQCAJYAJjwHyAAQJDZgQAIlO0A4AjtAOAwxwAI";
+      const b64_main115 = "/7V6SADwuPgAJ3lMoEd3SADwsvhP8AAAdklB8qUCdkuYR0DyHWBP8LIBT/DPAnNLT/AKBADwAfhA4CC1cE2t6wUNAJABlAKobkygR2xNDesFDSC9/7VsSkDy/xRP8AEDEWhB6gQBAPAa+AP6APCB6gABEWD/vf61ZEpP8AEDEWgA8Aj4A/oA8AHqAAEAKQi/ASD+vQK1D/JNEQhcAr0CtU6hCFwCvQC1//fU/0/wZAAA8Fb4CEb/997/AL1P8AEAT/AAAf/37/8BKAi/UEgIvwDwUvhFSADwT/hP8AEAT/ABAf/34P8BKAi/SkgIvwDwQ/gIvwDwKfhP8AEAT/ACAf/30f8BKAi/Q0gIv4BHCL8A8Bv4T/ACAE/wAAH/98P/ASgIvzpICL8A8Cb4CL8A8Az4T/ACAE/wAQH/97T/ASgIvwDwI/i55/C9/ucDtTNJT/AAAAhgA70CtTFJCGACvQK1T/CUAQD7AfAAv6DxAQAAKIi/+ecCvf/36P8BRghogPMIiAHxBAEIaABHH7VA8gRAT/SIcU/wjAIiS0/wUAT/90v/T/AIAE/wBQH/93v/ASgYv/bnT/AAAA5JQfKlAg1LmEdA8h1gT/CyAU/wzwIKS0/wCgT/9zD/H70IBwYFBAMCAAEAAQIDBAUAIAAAkG0OIABAAfAAIQYgAMDAIAC49QEAUVEgABQAAEIQCAJCAADwHyAAQJDZgQAIlO0A4AjtAOAwxyAA";
+      const b64_image = "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";
+      const b64_about = "L6UQAgD/////////////////////////////////////////////////////////////////////////qiY9/wIAD4gAbQ88ADEPSAA1DzgAKQ+QAA0OcAEPIAL//6UOpAAOwAAMRAIOUAIPIAAPDhQBD4wAJw+gAAkOnAEPiAAbDzwACQ5gAA8gAg8OgAAOzAIPIAL//7MPNAEFD3QBBQ8gAB0PCAIZD2wAIQ+UABkPDAIJDlAADiQBD2AGLQ8gAv//ww8wASEPIAIdDwgLDQ8MAj0P3AApDigHDswBDyAC////CA8AAiEPIAAlDyACXQ8UACEPzAEVDjwADyAC///RDhgKD2AGaw6QDg+kDhcP4A4dD5wADQ8sCwkPpA8ZD5gAFQ8gAv//pg8aM/////////////////////////////////+tDk4aD/Yknw+uMZUPIAL//7sPrh4lD84wGQ9WHxUMfAAPEjERD0YoGQ/SHw0P/jAZD+AAFQ8gAv//zw82IxkPTihZD3wCEQ6GLA8WKScPlAAdDwwBGQ8gAv/+D7o/tQ9KOBUPjigBD84wVQ92LVEPrAYVDmAHD+YsHw8gAv//mw+gCikPQjkhD6ACDQ8gAr0PIAEtDyAC///TD+AOJQ84DhUPSAINDzY6SQ9ABhkOBjUPWAsfDyAC//+/DyALVQ8AHP/+D0Y2//////////8LDgoID+AA/g9oAeoPIAL//g9yFB0P8FQdDw4eKQ7KGQ5+EA+0ACUPPg0ZDmgAD2RVOw8gAv//uw7KIA/wVDMOgFQPYhQXDxIiMQ+0ADEPHAE1DvIRDyAC//+5DkoYDyACYw+KHS0PbhkVD6IiLQ/+IhkOZigPIAL///9aDtQFD1gCNw+iIikP4h4dDyAC///nDpgJDyACHw9kVCUPoGYZDxBiIQ+iIh0P/iIpD6AKxQ8gAv/yDxQX/g+iIv4PIAL+Dwhb///////////////////////////SDvQqDgArDyAC///+D4Bu////////////////////////////xQ8YACEOLjYPcke1Dr5XD2Q3Iw8gAv//9Q58Wg9ORBMPFkMlDqKOD2KbKw9ONxsPOEAdDkAzDyAC///rD1RrMQ+MbC0PMp8dDwZIKQ9ScS8OTmAPIAL///4PwG8aDlpHDyACaw8Ieh8OJgAPIJsjDyAC///ZD/h3GQ9eSCUPIAI9D25ILQ8kRSsPIAL///4PeqI0D2B5HQ9gBjEPoGwdD+AOJw4ESQ8gAv///g+CYv4Pwmb//g8CAP///////////////////////////////////////////////////////////////////9FQEKUQpRA=";
+
+      // DOM elements
+      const bootloader_input = document.getElementById('bootloader-file');
+      const kernel_input = document.getElementById('kernel-file');
+      const btn_patch_bootloader = document.getElementById('btn-patch-bootloader');
+      const btn_patch_kernel = document.getElementById('btn-patch-kernel');
+      const log_element = document.getElementById('log');
+
+      // Enable buttons when a file is loaded
+      bootloader_input.addEventListener('change', () => btn_patch_bootloader.disabled = !bootloader_input.files.length);
+      kernel_input.addEventListener('change', () => btn_patch_kernel.disabled = !kernel_input.files.length);
+
+      // Styled logging function
+      function log(message, type = 'info') {
+        const span = document.createElement('span');
+        span.className = type;
+        span.textContent = message + '\n';
+        log_element.appendChild(span);
+        log_element.scrollTop = log_element.scrollHeight;
+      }
+
+      function clear_log() { log_element.textContent = ''; }
+
+      // Utility: Find a byte pattern
+      function find_pattern(data, pattern) {
+	let L=data.length;
+	if (L>65536) L=65536;
+        for (let i = 0; i <= L - pattern.length; i++) {
+          let match = true;
+          for (let j = 0; j < pattern.length; j++) {
+            if (data[i + j] !== pattern[j]) {
+              match = false;
+              break;
+            }
+          }
+          if (match) return i;
+        }
+        return -1;
+      }
+
+      // Utility: Convert Base64 string to Uint8Array
+      function base64_to_uint8(base64) {
+        try {
+          const binary_string = atob(base64.trim());
+          const len = binary_string.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binary_string.charCodeAt(i);
+          }
+          return bytes;
+        } catch (error) {
+          log(`[-] Error decoding Base64 from embedded resource. Check its content.`, 'error');
+          return null;
+        }
+      }
+
+      // Utility: Inject data at a fixed offset ("dd seek=X" behavior)
+      function inject_bytes(dest_data, src_data, offset) {
+        if (offset + src_data.length > dest_data.length) {
+          log(`[-] Injection error: offset ${offset} + resource size (${src_data.length} bytes) exceeds original file size.`, 'error');
+          return false;
+        }
+        dest_data.set(src_data, offset);
+        return true;
+      }
+
+      // Download trigger
+      function download_file(data, original_name) {
+        const blob = new Blob([data], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ext_index = original_name.lastIndexOf('.');
+        const name = ext_index !== -1 ? original_name.substring(0, ext_index) : original_name;
+        const ext = ext_index !== -1 ? original_name.substring(ext_index) : '.bin';
+        
+        a.href = url;
+        a.download = `${name}_patched${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      // ==============================================================================
+      // BOOTLOADER PATCH LOGIC
+      // ==============================================================================
+      btn_patch_bootloader.addEventListener('click', () => {
+        clear_log();
+        const file = bootloader_input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const buffer = e.target.result;
+          const data = new Uint8Array(buffer);
+          log(`[*] Analyzing bootloader: ${file.name} (${data.length} bytes)`, 'info');
+
+          let patched_p1 = false;
+	  let model=0;
+
+          // --- Patch 1: N0120 version ---
+          const patterns_n0120 = [
+            { bytes: new Uint8Array([0x30, 0x62, 0x00, 0x21, 0xF2, 0x6B, 0x07, 0x20]), name: 'N0120 P1.1 (30 62)' },
+            { bytes: new Uint8Array([0x20, 0x62, 0x00, 0x21, 0xE2, 0x6B, 0x07, 0x20]), name: 'N0120 P1.2 (20 62)' }
+          ];
+
+          for (const p of patterns_n0120) {
+            const offset = find_pattern(data, p.bytes);
+            if (offset !== -1) {
+              data[offset] = 0x00; data[offset+1] = 0xBF; // NOP
+              if (offset + 13 < data.length) {
+                data[offset+12] = 0x00; data[offset+13] = 0xBF; // NOP
+		model=120;
+                log(`[+] Hardware detected: Numworks N0120`, 'success');
+                log(`[+] ${p.name} applied (NOPs at 0x${offset.toString(16).toUpperCase()} and 0x${(offset+12).toString(16).toUpperCase()})`, 'success');
+                patched_p1 = true;
+                break;
+              }
+            }
+          }
+
+          // --- Patch 1: N0115 version ---
+          if (!patched_p1) {
+            const pattern_n0115 = new Uint8Array([0xC5, 0xF8, 0x14, 0x0C, 0x10, 0x21, 0xD5, 0xF8]);
+            const offset_n0115 = find_pattern(data, pattern_n0115);
+            if (offset_n0115 !== -1) {
+	      model=115;
+              log(`[+] Hardware detected: Numworks N0115`, 'success');
+              data[offset_n0115] = 0x00; data[offset_n0115+1] = 0xBF;
+              data[offset_n0115+2] = 0x00; data[offset_n0115+3] = 0xBF;
+              
+              const offset_2 = offset_n0115 + 18;
+              if (offset_2 + 3 < data.length) {
+                data[offset_2] = 0x00; data[offset_2+1] = 0xBF;
+                data[offset_2+2] = 0x00; data[offset_2+3] = 0xBF;
+                log(`[+] N0115 pattern applied (4 NOP bytes at 0x${offset_n0115.toString(16).toUpperCase()} and 0x${offset_2.toString(16).toUpperCase()})`, 'success');
+                patched_p1 = true;
+              }
+            }
+          }
+
+          if (!patched_p1) {
+            log(`[-] Warning: No pattern for Patch 1 (N0120/N0115) found.`, 'error');
+          }
+
+          // --- Patch 2: Dynamic BL 0xBC00 ---
+          pattern_bl = new Uint8Array([0x6B, 0x46, 0x10, 0x68, 0x51, 0x68]);
+          offset_bl = find_pattern(data, pattern_bl);
+
+          if (offset_bl !== -1) {
+            const patch_address = offset_bl + 22;
+            const target_address = 0xBC00;
+            const pc_address = patch_address + 4;
+            let jump_offset = target_address - pc_address;
+
+            let jump_val = jump_offset >> 1;
+            const S = jump_val < 0 ? 1 : 0;
+            if (jump_val < 0) {
+              jump_val = (1 << 24) + jump_val;
+            }
+
+            const I1 = (jump_val >> 22) & 1;
+            const I2 = (jump_val >> 21) & 1;
+            const J1 = (I1 ^ S) === 0 ? 1 : 0;
+            const J2 = (I2 ^ S) === 0 ? 1 : 0;
+
+            const imm10 = (jump_val >> 11) & 0x3FF;
+            const imm11 = jump_val & 0x7FF;
+
+            const first_half = 0xF000 | (S << 10) | imm10;
+            const second_half = 0xF800 | (J1 << 13) | (J2 << 11) | imm11;
+
+            if (patch_address + 3 < data.length) {
+              data[patch_address] = first_half & 0xFF;
+              data[patch_address+1] = (first_half >> 8) & 0xFF;
+              data[patch_address+2] = second_half & 0xFF;
+              data[patch_address+3] = (second_half >> 8) & 0xFF;
+
+              log(`[+] [BL Patch] Dynamic jump injected at offset 0x${patch_address.toString(16).toUpperCase()}`, 'success');
+              patched_p1 = true;
+            }
+          } else {
+            log(`[-] Pattern 2 (BL) not found.`, 'error');
+          }
+
+          // --- RESOURCE INJECTION STEP ---
+          log(`[*] Starting injection of embedded binary files...`, 'info');
+          
+          const main_bytes = base64_to_uint8(model==115?b64_main115:b64_main);
+          const image_bytes = base64_to_uint8(b64_image);
+          const about_bytes = base64_to_uint8(b64_about);
+
+          let injection_success = true;
+
+          if (main_bytes && main_bytes.length > 0) {
+            if (inject_bytes(data, main_bytes, 48128)) {
+	      if (model==115){
+		log(`[+] main115.bin injected at 48128 (0xBC00) - [${main_bytes.length} bytes]`, 'success');
+                pattern_bl = new Uint8Array([0x08, 0xb5, 0x01, 0x22, 0x00, 0x21, 0x06, 0x48]);
+                offset_bl = find_pattern(data, pattern_bl);
+                if (offset_bl>0){
+                  data[0xbc04]=0;
+                  data[0xbc05]=0xbf;
+                  data[0xbdf0]=(offset_bl+1)%256;
+                  data[0xbdf1]=(offset_bl/256)%256;
+                  log(`[+] activate screen n115 injected at 0xBDF0 [${offset_bl+1}]`, 'success');
+                }
+              }
+	      else {
+                log(`[+] main.bin injected at 48128 (0xBC00) - [${main_bytes.length} bytes]`, 'success');
+                pattern_bl = new Uint8Array([0x08, 0xb5, 0x01, 0x22, 0x03, 0x21, 0x06, 0x48]);
+                offset_bl = find_pattern(data, pattern_bl);
+                if (offset_bl>0){
+                  data[0xbc04]=0;
+                  data[0xbc05]=0xbf;
+                  data[0xbdfc]=(offset_bl+1)%256;
+                  data[0xbdfd]=(offset_bl/256)%256;
+                  log(`[+] activate screen n120 injected at 0xBDFC [${offset_bl+1}]`, 'success');
+                }
+              }
+            } else { injection_success = false; }
+          }
+          if (image_bytes && image_bytes.length > 0) {
+            if (inject_bytes(data, image_bytes, 49344)) {
+              log(`[+] image.bin injected at 49344 (0xC0C0) - [${image_bytes.length} bytes]`, 'success');
+            } else { injection_success = false; }
+          }
+          if (about_bytes && about_bytes.length > 0) {
+            if (inject_bytes(data, about_bytes, 50992)) {
+              log(`[+] about.bin injected at 50992 (0xC730) - [${about_bytes.length} bytes]`, 'success');
+            } else { injection_success = false; }
+          }
+
+          if (patched_p1 && injection_success) {
+            log(`[+] Overall operation successful! Downloading patched bootloader...`, 'success');
+            download_file(data, file.name);
+          } else {
+            log(`[-] Failure: The modification process encountered errors.`, 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+
+      // ==============================================================================
+      // KERNEL PATCH LOGIC
+      // ==============================================================================
+      btn_patch_kernel.addEventListener('click', () => {
+        clear_log();
+        const file = kernel_input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const buffer = e.target.result;
+          const data = new Uint8Array(buffer);
+          log(`[*] Analyzing kernel: ${file.name} (${data.length} bytes)`, 'info');
+
+          let any_kernel_patched = false;
+
+          const pattern_k1 = new Uint8Array([0x20, 0x62, 0x00, 0x21, 0xE2, 0x6B, 0x07, 0x20]);
+          const offset_k1 = find_pattern(data, pattern_k1);
+          if (offset_k1 !== -1) {
+            data[offset_k1] = 0x00; data[offset_k1+1] = 0xBF;
+            if (offset_k1 + 13 < data.length) {
+              data[offset_k1+12] = 0x00; data[offset_k1+13] = 0xBF;
+              log(`[+] [Kernel Patch 1] Applied (NOPs at 0x${offset_k1.toString(16).toUpperCase()} and 0x${(offset_k1+12).toString(16).toUpperCase()})`, 'success');
+              any_kernel_patched = true;
+            }
+          }
+
+          const pattern_k2 = new Uint8Array([0x4F, 0xF0, 0x00, 0x60, 0x05, 0xF1, 0x00, 0x65]);
+          const offset_k2 = find_pattern(data, pattern_k2);
+          if (offset_k2 !== -1) {
+            const patch_addr_k2 = offset_k2 + 8;
+            if (patch_addr_k2 + 3 < data.length) {
+              data[patch_addr_k2] = 0x00; data[patch_addr_k2+1] = 0xBF;
+              data[patch_addr_k2+2] = 0x00; data[patch_addr_k2+3] = 0xBF;
+              log(`[+] [Kernel Patch 2] BL neutralized (2 NOPs inserted at offset 0x${patch_addr_k2.toString(16).toUpperCase()})`, 'success');
+              any_kernel_patched = true;
+            }
+          }
+
+          const pattern_k3 = new Uint8Array([0xC4, 0xF8, 0x98, 0x0D, 0x4F, 0xF0, 0x10, 0x50]);
+          const offset_k3 = find_pattern(data, pattern_k3);
+          if (offset_k3 !== -1) {
+            const patch_addr_k3 = offset_k3 + 6;
+            if (patch_addr_k3 < data.length) {
+              data[patch_addr_k3] = 0x00;
+              data[patch_addr_k3+10] = 0x1c;
+              log(`[+] [Kernel Patch 3] Constant modified (0x10 -> 0x00 at offset 0x${patch_addr_k3.toString(16).toUpperCase()} and 0x11->0x1c 10 bytes later)`, 'success');
+              any_kernel_patched = true;
+            }
+          }
+
+          if (any_kernel_patched) {
+            log(`[+] Success! Downloading patched kernel...`, 'success');
+            download_file(data, file.name);
+          } else {
+            log(`[-] Failure: No N0120 Kernel pattern found.`, 'error');
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    </script>
+  </body>
+</html>
