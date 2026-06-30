@@ -149,6 +149,12 @@ You may flash:
 
 ## Extracting the Original Bootloader
 
+First, you have to download the files from NumWorks:
+[https://my.numworks.com/firmwares/n0120/stable.dfu](https://my.numworks.com/firmwares/n0120/stable.dfu)
+You have to be logged in.
+
+Place the file in the bootloader folder.
+
 The repository contains:
 
 ```text
@@ -245,6 +251,8 @@ Try:
 
 ---
 
+
+You can read more [here](https://nwagyu.org/reference).
 ## Credits
 
 Research, tooling, and documentation were made possible by contributions from the NumWorks reverse-engineering community.
