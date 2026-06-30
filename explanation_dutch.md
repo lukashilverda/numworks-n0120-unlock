@@ -61,7 +61,7 @@ Idealiter hebben we dus RDP 0. We kunnen hier komen vanaf RDP 1 door debug-toega
 
 **Waarom staat STMicroelectronics downgrade toe?**
 
-Hier zit een interessante ontwerpkeuze van STMicroelectronics: waarom staat het downgraden van RDP 1 naar RDP 0 toe? Dit lijkt een beveiligingslek, maar het is eigenlijk een bewuste keuze. STMicroelectronics wil ontwikkelaars de mogelijkheid geven om een beveiligde chip te "resetten" voor hergebruik of debugging. Om te voorkomen dat hierbij geheime data gelekt wordt, wist de chip automatisch al het flash-geheugen bij het downgraden van RDP 1 naar 0. Dit betekent dat alle firmware, data en geheimen verdwijnen zodra we de beveiliging uitschakelen.
+Hier zit een interessante ontwerpkeuze van STMicroelectronics: waarom staat het downgraden van RDP 1 naar RDP 0 toe? Dit lijkt een beveiligingslek, maar het is eigenlijk een bewuste keuze. STMicroelectronics wil ontwikkelaars de mogelijkheid geven om een beveiligde chip te "resetten" voor hergebruik of debugging. Om te voorkomen dat hierbij geheime data gelekt wordt, wist de chip automatisch al het flash-geheugen bij het downgraden van RDP 1 naar 0.
 
 **RDP 2: Geavanceerde aanvalstechnieken**
 
