@@ -103,13 +103,13 @@ This wiring diagram is intended for the Raspberry Pi 3. GPIO numbering may diffe
 
 The ground connection may also be soldered directly to the ground pad located in the upper-right corner of the calculator PCB.
 
-Double-check all wiring before continuing.
+Double-check all wiring before continuing. Make sure the N0120 is powered up.
 
 ---
 
 ## Unlocking the Calculator
 
-With the calculator connected, run:
+With the calculator connected and in recovery mode (reset+6), run:
 
 ```bash
 cd unlock
