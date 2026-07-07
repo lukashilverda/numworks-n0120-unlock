@@ -2,6 +2,7 @@
 
 A guide to unlocking the NumWorks N0120 graphing calculator and gaining full control over its hardware.
 
+** This repo is only for educational purposes, except cheating. Don't cheat. **
 ---
 
 ## Table of Contents
