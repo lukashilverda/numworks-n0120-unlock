@@ -83,7 +83,7 @@ Hier is het bestand `unlock120.run` wat gebruikt wordt voor het ontgrendelen van
 init
 halt
 stm32h7x option_write 0 0x44 0x1ff01ff0    // Zet het bootaddress op 0x1ff voor zowel boot1 als boot0 mode, om ervoor te zorgen dat de chip opstart naar de STM32 recovery mode
-stm32h7x option_write 0 0x3C 0xFF          // Schrijf RDP 1
+stm32h7x option_write 0 0x3C 0xFF          // Zet de write-protection uit
 stm32h7x unlock 0                          // Hef de RDP op
 ```
 
